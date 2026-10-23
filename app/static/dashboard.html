@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Patient Intake Dashboard</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --ink: #14181f; --muted: #5d6675; --line: #e3e6eb;
+    --accent: #0f766e; --accent-soft: #e6f4f2; --warn: #b45309; --warn-soft: #fef3e2;
+    --bad: #b42318; --bad-soft: #fdecea; --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1116; --panel: #161b22; --ink: #e6e9ee; --muted: #9aa4b2; --line: #262d37;
+      --accent: #2dd4bf; --accent-soft: #10302d; --warn: #f5a524; --warn-soft: #33270f;
+      --bad: #f97066; --bad-soft: #3a1714;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 20px 24px 8px; display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; justify-content: space-between; }
+  h1 { font-size: 20px; margin: 0; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 13px; }
+  main { padding: 8px 24px 40px; max-width: 1280px; margin: 0 auto; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 12px 0 18px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .stat .n { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .stat .l { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .tab { background: none; border: 0; padding: 10px 14px; color: var(--muted); font: inherit; cursor: pointer; border-bottom: 2px solid transparent; }
+  .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  input { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: inherit; min-width: 0; flex: 1 1 160px; }
+  button.btn { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 8px 14px; font: inherit; font-weight: 600; cursor: pointer; }
+  button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: var(--accent-soft); }
+  tbody tr:last-child td { border-bottom: 0; }
+  .mono { font-family: var(--mono); font-size: 13px; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; background: var(--accent-soft); color: var(--accent); }
+  .pill.warn { background: var(--warn-soft); color: var(--warn); }
+  .pill.bad { background: var(--bad-soft); color: var(--bad); }
+  .empty { padding: 28px; text-align: center; color: var(--muted); }
+  dialog { border: 1px solid var(--line); border-radius: 12px; padding: 0; width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 48px); background: var(--panel); color: var(--ink); }
+  dialog::backdrop { background: rgb(0 0 0 / .45); }
+  .dhead { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); }
+  .dhead h2 { margin: 0; font-size: 18px; }
+  .dbody { padding: 16px 20px 22px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px 20px; }
+  .f .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .f .v { word-break: break-word; }
+  h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 22px 0 8px; }
+  details { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+  summary { cursor: pointer; }
+  pre { white-space: pre-wrap; font-family: var(--mono); font-size: 12.5px; margin: 10px 0 0; color: var(--ink); }
+  .err { color: var(--bad); padding: 12px 0; }
+  @media (max-width: 600px) { header, main { padding-left: 16px; padding-right: 16px; } }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Patient Intake Dashboard</h1>
+    <div class="sub">Patients registered by the voice agent and through the REST API</div>
+  </div>
+  <div class="sub" id="updated">Loading…</div>
+</header>
+<main>
+  <section class="stats">
+    <div class="stat"><div class="n" id="s-patients">–</div><div class="l">Active patients</div></div>
+    <div class="stat"><div class="n" id="s-today">–</div><div class="l">Registered today</div></div>
+    <div class="stat"><div class="n" id="s-calls">–</div><div class="l">Calls logged</div></div>
+    <div class="stat"><div class="n" id="s-linked">–</div><div class="l">Calls with a saved record</div></div>
+  </section>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-tab="patients">Patients</button>
+    <button class="tab" role="tab" aria-selected="false" data-tab="calls">Call log</button>
+  </nav>
+
+  <section id="tab-patients">
+    <form class="filters" id="filters">
+      <input name="last_name" placeholder="Last name" aria-label="Last name">
+      <input name="phone_number" placeholder="Phone number" aria-label="Phone number">
+      <input name="date_of_birth" placeholder="DOB (MM/DD/YYYY)" aria-label="Date of birth">
+      <button class="btn" type="submit">Search</button>
+      <button class="btn ghost" type="reset">Clear</button>
+    </form>
+    <div class="err" id="p-err" hidden></div>
+    <div class="card scroll">
+      <table>
+        <thead><tr><th>Name</th><th>DOB</th><th>Sex</th><th>Phone</th><th>City / State</th><th>Language</th><th>Registered</th></tr></thead>
+        <tbody id="patients"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="tab-calls" hidden>
+    <div class="card scroll">
+      <table>
+        <thead><tr><th>Started</th><th>Caller</th><th>Status</th><th>Ended reason</th><th>Patient</th><th>Summary</th></tr></thead>
+        <tbody id="calls"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<dialog id="detail">
+  <div class="dhead"><h2 id="d-title"></h2><button class="btn ghost" id="d-close" type="button">Close</button></div>
+  <div class="dbody" id="d-body"></div>
+</dialog>
+
+<script>
+const $ = (s) => document.querySelector(s);
+// Everything rendered came from a phone caller: always escape.
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtPhone = (p) => p && p.length === 10 ? `(${p.slice(0,3)}) ${p.slice(3,6)}-${p.slice(6)}` : (p || "");
+const fmtTime = (t) => t ? new Date(t).toLocaleString([], {dateStyle: "medium", timeStyle: "short"}) : "";
+let patientsById = {};
+
+async function api(path) {
+  const res = await fetch(path);
+  const body = await res.json();
+  if (!res.ok || body.error) throw new Error(body.error?.message || `HTTP ${res.status}`);
+  return body.data;
+}
+
+async function loadPatients() {
+  const params = new URLSearchParams();
+  for (const [k, v] of new FormData($("#filters"))) if (v.trim()) params.set(k, v.trim());
+  $("#p-err").hidden = true;
+  try {
+    const rows = await api(`/patients?${params}`);
+    patientsById = Object.fromEntries(rows.map((p) => [p.patient_id, p]));
+    $("#patients").innerHTML = rows.length ? rows.map((p) => `
+      <tr data-id="${esc(p.patient_id)}">
+        <td><strong>${esc(p.first_name)} ${esc(p.last_name)}</strong></td>
+        <td class="mono">${esc(p.date_of_birth)}</td>
+        <td>${esc(p.sex)}</td>
+        <td class="mono">${esc(fmtPhone(p.phone_number))}</td>
+        <td>${esc(p.city)}, ${esc(p.state)}</td>
+        <td>${esc(p.preferred_language)}</td>
+        <td>${esc(fmtTime(p.created_at))}</td>
+      </tr>`).join("") : `<tr><td colspan="7" class="empty">No patients match.</td></tr>`;
+    if (!params.toString()) {
+      $("#s-patients").textContent = rows.length;
+      const today = new Date().toDateString();
+      $("#s-today").textContent = rows.filter((p) => new Date(p.created_at).toDateString() === today).length;
+    }
+  } catch (e) {
+    $("#p-err").textContent = e.message; $("#p-err").hidden = false;
+  }
+}
+
+async function loadCalls() {
+  const calls = await api("/calls?limit=100");
+  $("#s-calls").textContent = calls.length;
+  $("#s-linked").textContent = calls.filter((c) => c.patient_id).length;
+  $("#calls").innerHTML = calls.length ? calls.map((c) => {
+    const p = c.patient_id && patientsById[c.patient_id];
+    const reason = c.ended_reason || "";
+    const cls = !c.ended_reason ? "warn" : /error|fail/i.test(reason) ? "bad" : "";
+    return `<tr data-id="${esc(c.patient_id || "")}">
+      <td>${esc(fmtTime(c.started_at || c.created_at))}</td>
+      <td class="mono">${esc(c.caller_number)}</td>
+      <td><span class="pill ${cls}">${esc(c.status)}</span></td>
+      <td>${esc(reason)}</td>
+      <td>${p ? esc(`${p.first_name} ${p.last_name}`) : (c.patient_id ? "Saved" : "<span class='sub'>Not saved</span>")}</td>
+      <td style="white-space:normal;min-width:260px">${esc(c.summary)}</td>
+    </tr>`;
+  }).join("") : `<tr><td colspan="6" class="empty">No calls yet. Call the number to try the agent.</td></tr>`;
+}
+
+async function openPatient(id) {
+  const p = patientsById[id] || await api(`/patients/${encodeURIComponent(id)}`);
+  const [calls, appts] = await Promise.all([
+    api(`/patients/${encodeURIComponent(id)}/calls`), api(`/patients/${encodeURIComponent(id)}/appointments`),
+  ]);
+  const field = (k, v) => `<div class="f"><div class="k">${k}</div><div class="v">${esc(v) || "<span class='sub'>—</span>"}</div></div>`;
+  $("#d-title").textContent = `${p.first_name} ${p.last_name}`;
+  $("#d-body").innerHTML = `
+    <div class="grid">
+      ${field("Date of birth", p.date_of_birth)}${field("Sex", p.sex)}
+      ${field("Phone", fmtPhone(p.phone_number))}${field("Email", p.email)}
+      ${field("Address", [p.address_line_1, p.address_line_2].filter(Boolean).join(", "))}
+      ${field("City / State / ZIP", `${p.city}, ${p.state} ${p.zip_code}`)}
+      ${field("Insurance", [p.insurance_provider, p.insurance_member_id].filter(Boolean).join(" · "))}
+      ${field("Emergency contact", [p.emergency_contact_name, fmtPhone(p.emergency_contact_phone)].filter(Boolean).join(" · "))}
+      ${field("Preferred language", p.preferred_language)}
+      ${field("Patient ID", p.patient_id)}
+      ${field("Created", fmtTime(p.created_at))}${field("Updated", fmtTime(p.updated_at))}
+    </div>
+    <h3>Appointments</h3>
+    ${appts.length ? appts.map((a) => `<div>${esc(fmtTime(a.starts_at))} with ${esc(a.provider_name)} <span class="pill">${esc(a.status)}</span></div>`).join("") : "<div class='sub'>None booked.</div>"}
+    <h3>Calls</h3>
+    ${calls.length ? calls.map((c) => `
+      <details>
+        <summary>${esc(fmtTime(c.started_at || c.created_at))} · ${esc(c.ended_reason || c.status)}</summary>
+        ${c.summary ? `<p>${esc(c.summary)}</p>` : ""}
+        <pre>${esc(c.transcript || "Transcript arrives when the call ends.")}</pre>
+      </details>`).join("") : "<div class='sub'>No linked calls (created via API or seed data).</div>"}
+  `;
+  $("#detail").showModal();
+}
+
+async function refresh() {
+  await loadPatients();
+  try { await loadCalls(); } catch (e) { /* call log is secondary */ }
+  $("#updated").textContent = `Updated ${new Date().toLocaleTimeString()}`;
+}
+
+$("#filters").addEventListener("submit", (e) => { e.preventDefault(); loadPatients(); });
+$("#filters").addEventListener("reset", () => setTimeout(loadPatients));
+document.addEventListener("click", (e) => {
+  const row = e.target.closest("tbody tr[data-id]");
+  if (row && row.dataset.id) openPatient(row.dataset.id).catch((err) => alert(err.message));
+});
+$("#d-close").addEventListener("click", () => $("#detail").close());
+document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => {
+  document.querySelectorAll(".tab").forEach((x) => x.setAttribute("aria-selected", String(x === t)));
+  $("#tab-patients").hidden = t.dataset.tab !== "patients";
+  $("#tab-calls").hidden = t.dataset.tab !== "calls";
+}));
+
+refresh();
+setInterval(refresh, 15000);
+</script>
+</body>
+</html>
