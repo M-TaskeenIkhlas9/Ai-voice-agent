@@ -119,7 +119,7 @@ async def _unhandled(request: Request, exc: Exception):
 def health():
     with database.SessionLocal() as session:
         session.execute(text("SELECT 1"))
-    return ok({"status": "ok"})
+    return ok({"status": "ok", "clinic_name": get_settings().clinic_name})
 
 
 @app.get("/", include_in_schema=False)

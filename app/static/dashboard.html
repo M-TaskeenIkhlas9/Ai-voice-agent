@@ -3,234 +3,582 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Patient Intake Dashboard</title>
+<title>Intake Line</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237A2E63' stroke-width='2.6' stroke-linecap='round'%3E%3Cpath d='M3 12h2M7 8v8M11 4v16M15 9v6M19 11v2'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
+  /* ------------------------------------------------------------------ tokens
+     Palette: cool exam-room paper, navy ink, mulberry = registered,
+     amber = call ended before anything was saved. */
   :root {
-    --bg: #f6f7f9; --panel: #ffffff; --ink: #14181f; --muted: #5d6675; --line: #e3e6eb;
-    --accent: #0f766e; --accent-soft: #e6f4f2; --warn: #b45309; --warn-soft: #fef3e2;
-    --bad: #b42318; --bad-soft: #fdecea; --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+    --paper: #F2F1F6;
+    --panel: #FFFFFF;
+    --ink: #1A1D29;
+    --ink-2: #4A4858;
+    --muted: #7A7689;
+    --rule: #E1DFE8;
+    --mulberry: #7A2E63;
+    --mulberry-wash: #F4E8F0;
+    --amber: #B86E12;
+    --amber-wash: #FCF1E1;
+    --idle: #CFCCD9;
+    --focus: #7A2E63;
+
+    --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --f-body: "Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+    --f-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    --r: 10px;
+    --shadow: 0 1px 0 rgb(26 29 41 / .04), 0 8px 24px -12px rgb(26 29 41 / .18);
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #0e1116; --panel: #161b22; --ink: #e6e9ee; --muted: #9aa4b2; --line: #262d37;
-      --accent: #2dd4bf; --accent-soft: #10302d; --warn: #f5a524; --warn-soft: #33270f;
-      --bad: #f97066; --bad-soft: #3a1714;
+      --paper: #121119;
+      --panel: #1B1923;
+      --ink: #EEEAF4;
+      --ink-2: #C3BECF;
+      --muted: #8F8A9E;
+      --rule: #2C2937;
+      --mulberry: #DB86C0;
+      --mulberry-wash: #34202E;
+      --amber: #F0B35A;
+      --amber-wash: #33261A;
+      --idle: #3A3647;
+      --focus: #DB86C0;
+      --shadow: 0 1px 0 rgb(0 0 0 / .3), 0 12px 32px -12px rgb(0 0 0 / .6);
     }
   }
+
+  /* ------------------------------------------------------------------ base */
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink);
-         font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  header { padding: 20px 24px 8px; display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; justify-content: space-between; }
-  h1 { font-size: 20px; margin: 0; letter-spacing: -0.01em; }
-  .sub { color: var(--muted); font-size: 13px; }
-  main { padding: 8px 24px 40px; max-width: 1280px; margin: 0 auto; }
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 12px 0 18px; }
-  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
-  .stat .n { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; }
-  .stat .l { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
-  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
-  .tab { background: none; border: 0; padding: 10px 14px; color: var(--muted); font: inherit; cursor: pointer; border-bottom: 2px solid transparent; }
-  .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
-  .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-  input { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: inherit; min-width: 0; flex: 1 1 160px; }
-  button.btn { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 8px 14px; font: inherit; font-weight: 600; cursor: pointer; }
-  button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font: 15px/1.5 var(--f-body);
+  }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+  button { font: inherit; color: inherit; }
+  .mono { font-family: var(--f-mono); font-size: .86em; letter-spacing: -.01em; }
+  .muted { color: var(--muted); }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 0 32px; }
+
+  /* ------------------------------------------------------------------ masthead */
+  .top {
+    display: flex; justify-content: space-between; align-items: center; gap: 16px;
+    padding: 22px 0 0; font-size: 13px; color: var(--ink-2);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: .01em; }
+  .brand svg { color: var(--mulberry); }
+  .live { display: inline-flex; align-items: center; gap: 8px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mulberry); position: relative; }
+  .dot::after {
+    content: ""; position: absolute; inset: -4px; border-radius: 50%;
+    border: 2px solid var(--mulberry); opacity: 0; animation: ping 2.4s ease-out infinite;
+  }
+  .live.down .dot { background: var(--amber); }
+  .live.down .dot::after { display: none; }
+  @keyframes ping { 0% { transform: scale(.6); opacity: .7; } 100% { transform: scale(1.8); opacity: 0; } }
+
+  .thesis { padding: 40px 0 8px; max-width: 900px; }
+  .thesis h1 {
+    font: 700 clamp(30px, 4.6vw, 52px)/1.04 var(--f-display);
+    letter-spacing: -.025em; margin: 0;
+    font-variation-settings: "opsz" 96;
+  }
+  .thesis h1 em { font-style: normal; color: var(--mulberry); }
+  .today { margin: 14px 0 0; color: var(--ink-2); display: flex; flex-wrap: wrap; gap: 6px 18px; }
+  .today b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  /* ------------------------------------------------------------------ the line (signature) */
+  .line {
+    margin: 30px 0 0; background: var(--panel); border: 1px solid var(--rule);
+    border-radius: var(--r); box-shadow: var(--shadow); padding: 18px 20px 14px;
+  }
+  .line-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .line-head h2 { font: 700 15px/1 var(--f-display); margin: 0; letter-spacing: -.01em; }
+  .legend { display: flex; gap: 16px; font-size: 13px; color: var(--muted); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .wave {
+    position: relative; height: 112px; margin-top: 12px; overflow: hidden;
+    display: flex; align-items: center; gap: 3px;
+  }
+  .wave::before { /* the baseline the call bars grow from */
+    content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--rule);
+  }
+  .bar {
+    position: relative; flex: 1 1 0; min-width: 2px; border: 0; padding: 0;
+    border-radius: 3px; background: var(--idle); cursor: default;
+    height: var(--h, 8%); transform-origin: center;
+  }
+  .bar.saved { background: var(--mulberry); cursor: pointer; }
+  .bar.dropped { background: var(--amber); cursor: pointer; }
+  .bar.live-call { background: var(--muted); cursor: pointer; }
+  .bar:not(.tick):hover, .bar:not(.tick):focus-visible { filter: brightness(1.15); transform: scaleX(1.25); }
+  .wave.animate .bar { animation: grow .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i) * 9ms); }
+  @keyframes grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+  .readout { min-height: 20px; margin-top: 10px; font-size: 13px; color: var(--ink-2); }
+
+  /* ------------------------------------------------------------------ workspace */
+  .work { margin: 34px 0 60px; }
+  .bar-row { display: flex; justify-content: space-between; align-items: end; gap: 16px; flex-wrap: wrap; border-bottom: 1px solid var(--rule); }
+  .tabs { display: flex; gap: 2px; }
+  .tab {
+    background: none; border: 0; padding: 10px 14px 12px; cursor: pointer; color: var(--muted);
+    font: 700 15px/1 var(--f-display); letter-spacing: -.01em; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--mulberry); }
+  .tab .count { font: 500 12px var(--f-mono); color: var(--muted); margin-left: 6px; }
+  .search { display: flex; gap: 8px; padding-bottom: 10px; flex-wrap: wrap; }
+  .search input {
+    width: 170px; padding: 8px 11px; border-radius: 8px; border: 1px solid var(--rule);
+    background: var(--panel); color: var(--ink); font: 14px var(--f-body);
+  }
+  .search input::placeholder { color: var(--muted); }
+  .btn {
+    border: 1px solid var(--rule); background: var(--panel); border-radius: 8px; padding: 8px 14px;
+    cursor: pointer; font-weight: 700; font-size: 14px;
+  }
+  .btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+  .sheet { margin-top: 14px; background: var(--panel); border: 1px solid var(--rule); border-radius: var(--r); box-shadow: var(--shadow); overflow: hidden; }
   .scroll { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-  th { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
-  tbody tr { cursor: pointer; }
-  tbody tr:hover { background: var(--accent-soft); }
+  th {
+    text-align: left; font: 700 11.5px var(--f-body); text-transform: uppercase; letter-spacing: .07em;
+    color: var(--muted); padding: 12px 16px; border-bottom: 1px solid var(--rule); white-space: nowrap;
+  }
+  td { padding: 13px 16px; border-bottom: 1px solid var(--rule); vertical-align: middle; white-space: nowrap; }
   tbody tr:last-child td { border-bottom: 0; }
-  .mono { font-family: var(--mono); font-size: 13px; }
-  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; background: var(--accent-soft); color: var(--accent); }
-  .pill.warn { background: var(--warn-soft); color: var(--warn); }
-  .pill.bad { background: var(--bad-soft); color: var(--bad); }
-  .empty { padding: 28px; text-align: center; color: var(--muted); }
-  dialog { border: 1px solid var(--line); border-radius: 12px; padding: 0; width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 48px); background: var(--panel); color: var(--ink); }
-  dialog::backdrop { background: rgb(0 0 0 / .45); }
-  .dhead { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); }
-  .dhead h2 { margin: 0; font-size: 18px; }
-  .dbody { padding: 16px 20px 22px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px 20px; }
-  .f .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-  .f .v { word-break: break-word; }
-  h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 22px 0 8px; }
-  details { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
-  summary { cursor: pointer; }
-  pre { white-space: pre-wrap; font-family: var(--mono); font-size: 12.5px; margin: 10px 0 0; color: var(--ink); }
-  .err { color: var(--bad); padding: 12px 0; }
-  @media (max-width: 600px) { header, main { padding-left: 16px; padding-right: 16px; } }
+  tbody tr.clickable { cursor: pointer; transition: background .12s; }
+  tbody tr.clickable:hover, tbody tr.clickable:focus-visible { background: var(--mulberry-wash); outline: none; }
+  .who { font: 700 15.5px/1.2 var(--f-display); letter-spacing: -.01em; }
+  .sub { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .summary-cell { white-space: normal; min-width: 280px; max-width: 460px; color: var(--ink-2); font-size: 14px; }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px;
+    font-size: 12.5px; font-weight: 700; white-space: nowrap; background: var(--paper); color: var(--ink-2);
+  }
+  .chip.saved { background: var(--mulberry-wash); color: var(--mulberry); }
+  .chip.dropped { background: var(--amber-wash); color: var(--amber); }
+  .chip.live-call::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .chip svg { flex: none; }
+
+  .empty { padding: 56px 24px; text-align: center; }
+  .empty h3 { font: 700 18px var(--f-display); margin: 0 0 6px; }
+  .empty p { margin: 0; color: var(--muted); }
+  .notice { margin-top: 14px; padding: 12px 16px; border-radius: 8px; background: var(--amber-wash); color: var(--amber); font-weight: 700; font-size: 14px; }
+
+  /* ------------------------------------------------------------------ record drawer */
+  .scrim { position: fixed; inset: 0; background: rgb(18 17 25 / .38); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 10; }
+  .scrim.open { opacity: 1; pointer-events: auto; }
+  .drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(640px, 100vw); z-index: 11;
+    background: var(--panel); border-left: 1px solid var(--rule); box-shadow: -24px 0 48px -24px rgb(0 0 0 / .35);
+    transform: translateX(100%); transition: transform .28s cubic-bezier(.2,.8,.2,1);
+    display: flex; flex-direction: column;
+  }
+  .drawer.open { transform: none; }
+  .d-head { padding: 22px 26px 18px; border-bottom: 1px solid var(--rule); display: flex; justify-content: space-between; gap: 16px; align-items: start; }
+  .d-head h2 { font: 800 30px/1.05 var(--f-display); letter-spacing: -.025em; margin: 0; }
+  .d-head .meta { margin-top: 8px; color: var(--ink-2); display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .close { border: 1px solid var(--rule); background: none; border-radius: 8px; width: 36px; height: 36px; cursor: pointer; display: grid; place-items: center; flex: none; }
+  .d-body { overflow-y: auto; padding: 6px 26px 40px; }
+  .d-sec { padding: 20px 0; border-bottom: 1px solid var(--rule); }
+  .d-sec:last-child { border-bottom: 0; }
+  .d-sec h3 { font: 700 11.5px var(--f-body); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 12px; }
+  .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 24px; }
+  .field .k { font-size: 12.5px; color: var(--muted); }
+  .field .v { margin-top: 2px; overflow-wrap: anywhere; }
+  .field .v.none { color: var(--muted); }
+  .appt { display: flex; justify-content: space-between; gap: 12px; padding: 10px 14px; border-radius: 8px; background: var(--paper); margin-bottom: 8px; }
+  .appt b { font-family: var(--f-display); }
+
+  .call { border: 1px solid var(--rule); border-radius: var(--r); margin-bottom: 12px; overflow: hidden; }
+  .call-head { padding: 12px 14px; display: flex; justify-content: space-between; gap: 10px; align-items: center; flex-wrap: wrap; background: var(--paper); }
+  .call-sum { padding: 12px 14px 0; margin: 0; color: var(--ink-2); font-size: 14px; }
+  .transcript { padding: 12px 14px 14px; display: grid; gap: 8px; max-height: 420px; overflow-y: auto; }
+  .turn { display: grid; grid-template-columns: 58px 1fr; gap: 10px; font-size: 14px; }
+  .turn .spk { font: 500 11.5px/1.9 var(--f-mono); text-transform: uppercase; color: var(--muted); }
+  .turn.ava .spk { color: var(--mulberry); }
+  .turn.ava .txt { color: var(--ink-2); }
+  .raw { white-space: pre-wrap; font: 13px/1.55 var(--f-mono); color: var(--ink-2); margin: 0; }
+
+  /* ------------------------------------------------------------------ responsive + motion */
+  @media (max-width: 820px) {
+    .wrap { padding: 0 16px; }
+    .hide-sm { display: none; }
+    .search input { width: calc(50% - 4px); flex: 1 1 140px; }
+    .fields { grid-template-columns: 1fr; }
+    .wave { gap: 1px; }
+    .bar { min-width: 0; border-radius: 1px; }
+    .line { padding: 16px 14px 12px; }
+    .d-head, .d-body { padding-left: 18px; padding-right: 18px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
 </style>
 </head>
 <body>
-<header>
-  <div>
-    <h1>Patient Intake Dashboard</h1>
-    <div class="sub">Patients registered by the voice agent and through the REST API</div>
-  </div>
-  <div class="sub" id="updated">Loading…</div>
-</header>
-<main>
-  <section class="stats">
-    <div class="stat"><div class="n" id="s-patients">–</div><div class="l">Active patients</div></div>
-    <div class="stat"><div class="n" id="s-today">–</div><div class="l">Registered today</div></div>
-    <div class="stat"><div class="n" id="s-calls">–</div><div class="l">Calls logged</div></div>
-    <div class="stat"><div class="n" id="s-linked">–</div><div class="l">Calls with a saved record</div></div>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M3 12h2M7 8v8M11 4v16M15 9v6M19 11v2"/></svg>
+      <span id="clinic">Intake line</span>
+    </div>
+    <div class="live" id="live"><span class="dot" aria-hidden="true"></span><span id="updated">Connecting…</span></div>
+  </header>
+
+  <section class="thesis" aria-live="polite">
+    <h1 id="headline">Loading the intake line…</h1>
+    <p class="today" id="today"></p>
   </section>
 
-  <nav class="tabs" role="tablist">
-    <button class="tab" role="tab" aria-selected="true" data-tab="patients">Patients</button>
-    <button class="tab" role="tab" aria-selected="false" data-tab="calls">Call log</button>
-  </nav>
+  <section class="line" aria-labelledby="line-title">
+    <div class="line-head">
+      <h2 id="line-title">The line: every call to Ava, oldest to newest</h2>
+      <div class="legend" aria-hidden="true">
+        <span><i style="background:var(--mulberry)"></i>Patient saved</span>
+        <span><i style="background:var(--amber)"></i>Ended before saving</span>
+      </div>
+    </div>
+    <div class="wave" id="wave" role="list" aria-label="Recent calls; bar height is call length"></div>
+    <div class="readout" id="readout">Bar height is call length. Select a bar to open that call.</div>
+  </section>
 
-  <section id="tab-patients">
-    <form class="filters" id="filters">
-      <input name="last_name" placeholder="Last name" aria-label="Last name">
-      <input name="phone_number" placeholder="Phone number" aria-label="Phone number">
-      <input name="date_of_birth" placeholder="DOB (MM/DD/YYYY)" aria-label="Date of birth">
-      <button class="btn" type="submit">Search</button>
-      <button class="btn ghost" type="reset">Clear</button>
-    </form>
-    <div class="err" id="p-err" hidden></div>
-    <div class="card scroll">
-      <table>
-        <thead><tr><th>Name</th><th>DOB</th><th>Sex</th><th>Phone</th><th>City / State</th><th>Language</th><th>Registered</th></tr></thead>
+  <section class="work">
+    <div class="bar-row">
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" id="tab-p" aria-selected="true" aria-controls="panel-p">Patients<span class="count" id="count-p"></span></button>
+        <button class="tab" role="tab" id="tab-c" aria-selected="false" aria-controls="panel-c">Calls<span class="count" id="count-c"></span></button>
+      </div>
+      <form class="search" id="search" role="search">
+        <input name="last_name" placeholder="Last name" aria-label="Search by last name" autocomplete="off">
+        <input name="phone_number" placeholder="Phone" aria-label="Search by phone number" inputmode="tel" autocomplete="off">
+        <input name="date_of_birth" placeholder="DOB MM/DD/YYYY" aria-label="Search by date of birth" autocomplete="off">
+        <button class="btn primary" type="submit">Search</button>
+        <button class="btn" type="reset">Clear</button>
+      </form>
+    </div>
+    <div id="notice" class="notice" hidden></div>
+
+    <div id="panel-p" role="tabpanel" aria-labelledby="tab-p" class="sheet">
+      <div class="scroll"><table>
+        <thead><tr>
+          <th>Patient</th><th>Date of birth</th><th>Phone</th><th class="hide-sm">Location</th>
+          <th class="hide-sm">Language</th><th>Source</th><th class="hide-sm">Registered</th>
+        </tr></thead>
         <tbody id="patients"></tbody>
-      </table>
+      </table></div>
     </div>
-  </section>
 
-  <section id="tab-calls" hidden>
-    <div class="card scroll">
-      <table>
-        <thead><tr><th>Started</th><th>Caller</th><th>Status</th><th>Ended reason</th><th>Patient</th><th>Summary</th></tr></thead>
+    <div id="panel-c" role="tabpanel" aria-labelledby="tab-c" class="sheet" hidden>
+      <div class="scroll"><table>
+        <thead><tr>
+          <th>When</th><th>Caller</th><th>Length</th><th>Outcome</th><th class="hide-sm">Summary</th>
+        </tr></thead>
         <tbody id="calls"></tbody>
-      </table>
+      </table></div>
     </div>
   </section>
-</main>
+</div>
 
-<dialog id="detail">
-  <div class="dhead"><h2 id="d-title"></h2><button class="btn ghost" id="d-close" type="button">Close</button></div>
-  <div class="dbody" id="d-body"></div>
-</dialog>
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="d-title" aria-hidden="true">
+  <div class="d-head">
+    <div><h2 id="d-title"></h2><div class="meta" id="d-meta"></div></div>
+    <button class="close" id="d-close" aria-label="Close record">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <div class="d-body" id="d-body"></div>
+</aside>
 
 <script>
 const $ = (s) => document.querySelector(s);
-// Everything rendered came from a phone caller: always escape.
-const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const fmtPhone = (p) => p && p.length === 10 ? `(${p.slice(0,3)}) ${p.slice(3,6)}-${p.slice(6)}` : (p || "");
-const fmtTime = (t) => t ? new Date(t).toLocaleString([], {dateStyle: "medium", timeStyle: "short"}) : "";
-let patientsById = {};
+// Every value on this page was spoken by a caller: escape before rendering.
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const phone = (p) => p && p.length === 10 ? `(${p.slice(0, 3)}) ${p.slice(3, 6)}-${p.slice(6)}` : (p || "");
+const callerPhone = (p) => phone((p || "").replace(/^\+1/, "")) || "Unknown caller";
+const sameDay = (a, b) => a.toDateString() === b.toDateString();
+
+function when(iso) {
+  if (!iso) return "";
+  const d = new Date(iso), now = new Date(), mins = Math.round((now - d) / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins} min ago`;
+  const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  if (sameDay(d, now)) return `Today ${time}`;
+  const y = new Date(now); y.setDate(now.getDate() - 1);
+  if (sameDay(d, y)) return `Yesterday ${time}`;
+  return d.toLocaleDateString([], { month: "short", day: "numeric", year: d.getFullYear() === now.getFullYear() ? undefined : "numeric" }) + ` ${time}`;
+}
+function age(dob) {
+  const [m, d, y] = dob.split("/").map(Number), now = new Date();
+  let a = now.getFullYear() - y;
+  if (now.getMonth() + 1 < m || (now.getMonth() + 1 === m && now.getDate() < d)) a--;
+  return a;
+}
+function seconds(c) {
+  if (!c.started_at || !c.ended_at) return null;
+  return Math.max(0, (new Date(c.ended_at) - new Date(c.started_at)) / 1000);
+}
+const length = (s) => s == null ? "—" : s < 60 ? `${Math.round(s)}s` : `${Math.floor(s / 60)}m ${String(Math.round(s % 60)).padStart(2, "0")}s`;
+const REASONS = {
+  "customer-ended-call": "Caller hung up",
+  "assistant-ended-call": "Ava ended the call",
+  "silence-timed-out": "Line went silent",
+  "exceeded-max-duration": "Hit the time limit",
+  "customer-did-not-answer": "No answer",
+};
+const reason = (r) => r ? (REASONS[r] || r.replace(/[-.]/g, " ").replace(/^\w/, (c) => c.toUpperCase())) : "";
+function outcome(c) {
+  if (c.patient_id) return { cls: "saved", label: "Patient saved" };
+  if (c.status === "ended") return { cls: "dropped", label: "Ended before saving" };
+  return { cls: "live-call", label: "On the line" };
+}
+
+let state = { patients: [], calls: [], byId: {}, firstPaint: true };
 
 async function api(path) {
-  const res = await fetch(path);
-  const body = await res.json();
-  if (!res.ok || body.error) throw new Error(body.error?.message || `HTTP ${res.status}`);
+  const res = await fetch(path, { headers: { accept: "application/json" } });
+  let body;
+  try { body = await res.json(); } catch { throw new Error(`The API returned HTTP ${res.status} without JSON.`); }
+  if (!res.ok || body.error) {
+    const d = body.error?.details ? " " + Object.entries(body.error.details).map(([k, v]) => `${k.replace(/_/g, " ")} ${v}`).join("; ") : "";
+    throw new Error((body.error?.message || `HTTP ${res.status}`) + d);
+  }
   return body.data;
 }
 
-async function loadPatients() {
-  const params = new URLSearchParams();
-  for (const [k, v] of new FormData($("#filters"))) if (v.trim()) params.set(k, v.trim());
-  $("#p-err").hidden = true;
-  try {
-    const rows = await api(`/patients?${params}`);
-    patientsById = Object.fromEntries(rows.map((p) => [p.patient_id, p]));
-    $("#patients").innerHTML = rows.length ? rows.map((p) => `
-      <tr data-id="${esc(p.patient_id)}">
-        <td><strong>${esc(p.first_name)} ${esc(p.last_name)}</strong></td>
-        <td class="mono">${esc(p.date_of_birth)}</td>
-        <td>${esc(p.sex)}</td>
-        <td class="mono">${esc(fmtPhone(p.phone_number))}</td>
-        <td>${esc(p.city)}, ${esc(p.state)}</td>
-        <td>${esc(p.preferred_language)}</td>
-        <td>${esc(fmtTime(p.created_at))}</td>
-      </tr>`).join("") : `<tr><td colspan="7" class="empty">No patients match.</td></tr>`;
-    if (!params.toString()) {
-      $("#s-patients").textContent = rows.length;
-      const today = new Date().toDateString();
-      $("#s-today").textContent = rows.filter((p) => new Date(p.created_at).toDateString() === today).length;
-    }
-  } catch (e) {
-    $("#p-err").textContent = e.message; $("#p-err").hidden = false;
-  }
+/* ------------------------------------------------------------ headline */
+function renderThesis() {
+  const { patients, calls } = state;
+  const byPhone = new Set(calls.filter((c) => c.patient_id).map((c) => c.patient_id));
+  const viaAva = patients.filter((p) => byPhone.has(p.patient_id)).length;
+  const now = new Date();
+  const todayCalls = calls.filter((c) => sameDay(new Date(c.started_at || c.created_at), now));
+  const saved = todayCalls.filter((c) => c.patient_id).length;
+  const dropped = todayCalls.filter((c) => !c.patient_id && c.status === "ended").length;
+
+  $("#headline").innerHTML = patients.length
+    ? `${patients.length} ${patients.length === 1 ? "patient" : "patients"} on file. <em>${viaAva} registered by Ava</em> over the phone.`
+    : `No patients yet. <em>Call the intake line</em> to register the first one.`;
+  $("#today").innerHTML = `<span>Today: <b>${todayCalls.length}</b> ${todayCalls.length === 1 ? "call" : "calls"}</span>
+    <span><b>${saved}</b> saved a patient</span><span><b>${dropped}</b> ended before saving</span>`;
 }
 
-async function loadCalls() {
-  const calls = await api("/calls?limit=100");
-  $("#s-calls").textContent = calls.length;
-  $("#s-linked").textContent = calls.filter((c) => c.patient_id).length;
+/* ------------------------------------------------------------ the line */
+function renderWave() {
+  const SLOTS = 72;
+  const calls = state.calls.slice(0, SLOTS).reverse(); // oldest -> newest
+  const max = Math.max(60, ...calls.map((c) => seconds(c) || 0));
+  // Always draw a full strip: empty slots on the left are calls that haven't happened yet.
+  const pad = SLOTS - calls.length;
+  let html = "";
+  for (let i = 0; i < pad; i++) html += `<span class="bar tick" style="--h:4%;--i:${i}" aria-hidden="true"></span>`;
+  calls.forEach((c, j) => {
+    const s = seconds(c), o = outcome(c);
+    const h = s == null ? 18 : 8 + 92 * (s / max); // linear, so a 20s hang-up reads as short
+    const label = `${when(c.started_at || c.created_at)}, ${callerPhone(c.caller_number)}, ${length(s)}, ${o.label}`;
+    html += `<button class="bar ${o.cls}" role="listitem" style="--h:${h.toFixed(1)}%;--i:${pad + j}"
+      data-call="${esc(c.call_id)}" aria-label="${esc(label)}" data-label="${esc(label)}"></button>`;
+  });
+  const wave = $("#wave");
+  wave.classList.toggle("animate", state.firstPaint);
+  wave.innerHTML = html;
+}
+
+/* ------------------------------------------------------------ tables */
+function renderPatients(rows, filtered) {
+  const byPhone = new Set(state.calls.filter((c) => c.patient_id).map((c) => c.patient_id));
+  $("#count-p").textContent = rows.length;
+  $("#patients").innerHTML = rows.length ? rows.map((p) => `
+    <tr class="clickable" tabindex="0" data-patient="${esc(p.patient_id)}">
+      <td><span class="who">${esc(p.first_name)} ${esc(p.last_name)}</span><span class="sub">${esc(p.sex)}</span></td>
+      <td><span class="mono">${esc(p.date_of_birth)}</span><span class="sub">Age ${age(p.date_of_birth)}</span></td>
+      <td class="mono">${esc(phone(p.phone_number))}</td>
+      <td class="hide-sm">${esc(p.city)}, ${esc(p.state)}</td>
+      <td class="hide-sm">${esc(p.preferred_language)}</td>
+      <td>${byPhone.has(p.patient_id)
+        ? `<span class="chip saved"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M3 12h2M8 7v10M13 4v16M18 9v6"/></svg>Phone call</span>`
+        : `<span class="chip">API</span>`}</td>
+      <td class="hide-sm muted">${esc(when(p.created_at))}</td>
+    </tr>`).join("")
+    : `<tr><td colspan="7"><div class="empty">${filtered
+        ? `<h3>No patient matches that search</h3><p>Check the spelling, or search by phone number instead.</p>`
+        : `<h3>No patients registered yet</h3><p>Call the intake line and Ava will register you. Your record appears here within 15 seconds.</p>`}</div></td></tr>`;
+}
+
+function renderCalls() {
+  const { calls, byId } = state;
+  $("#count-c").textContent = calls.length;
   $("#calls").innerHTML = calls.length ? calls.map((c) => {
-    const p = c.patient_id && patientsById[c.patient_id];
-    const reason = c.ended_reason || "";
-    const cls = !c.ended_reason ? "warn" : /error|fail/i.test(reason) ? "bad" : "";
-    return `<tr data-id="${esc(c.patient_id || "")}">
-      <td>${esc(fmtTime(c.started_at || c.created_at))}</td>
-      <td class="mono">${esc(c.caller_number)}</td>
-      <td><span class="pill ${cls}">${esc(c.status)}</span></td>
-      <td>${esc(reason)}</td>
-      <td>${p ? esc(`${p.first_name} ${p.last_name}`) : (c.patient_id ? "Saved" : "<span class='sub'>Not saved</span>")}</td>
-      <td style="white-space:normal;min-width:260px">${esc(c.summary)}</td>
+    const o = outcome(c), p = c.patient_id && byId[c.patient_id];
+    return `<tr class="clickable" tabindex="0" data-call="${esc(c.call_id)}">
+      <td>${esc(when(c.started_at || c.created_at))}<span class="sub">${esc(reason(c.ended_reason))}</span></td>
+      <td><span class="mono">${esc(callerPhone(c.caller_number))}</span>${p ? `<span class="sub">${esc(p.first_name)} ${esc(p.last_name)}</span>` : ""}</td>
+      <td class="mono">${length(seconds(c))}</td>
+      <td><span class="chip ${o.cls}">${o.label}</span></td>
+      <td class="hide-sm summary-cell">${esc(c.summary) || `<span class="muted">Summary arrives when the call ends.</span>`}</td>
     </tr>`;
-  }).join("") : `<tr><td colspan="6" class="empty">No calls yet. Call the number to try the agent.</td></tr>`;
+  }).join("") : `<tr><td colspan="5"><div class="empty"><h3>No calls yet</h3><p>Every call to the intake line is logged here, including ones that end before a patient is saved.</p></div></td></tr>`;
+}
+
+/* ------------------------------------------------------------ drawer */
+function transcriptHTML(text) {
+  if (!text) return `<p class="raw">The transcript is added when the call ends.</p>`;
+  const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  const parsed = lines.map((l) => l.match(/^(AI|Assistant|Bot|User|Customer|Caller)\s*:\s*(.*)$/i));
+  if (!parsed.every(Boolean)) return `<pre class="raw">${esc(text)}</pre>`;
+  return parsed.map(([, who, said]) => {
+    const ava = /^(ai|assistant|bot)$/i.test(who);
+    return `<div class="turn ${ava ? "ava" : ""}"><span class="spk">${ava ? "Ava" : "Caller"}</span><span class="txt">${esc(said)}</span></div>`;
+  }).join("");
+}
+function callHTML(c) {
+  const o = outcome(c);
+  return `<article class="call">
+    <div class="call-head">
+      <span><b>${esc(when(c.started_at || c.created_at))}</b> <span class="muted">· ${length(seconds(c))}${c.ended_reason ? " · " + esc(reason(c.ended_reason)) : ""}</span></span>
+      <span class="chip ${o.cls}">${o.label}</span>
+    </div>
+    ${c.summary ? `<p class="call-sum">${esc(c.summary)}</p>` : ""}
+    <div class="transcript">${transcriptHTML(c.transcript)}</div>
+  </article>`;
+}
+const field = (k, v) => `<div class="field"><div class="k">${k}</div><div class="v ${v ? "" : "none"}">${v ? esc(v) : "Not provided"}</div></div>`;
+
+let lastFocus = null;
+function openDrawer(title, metaHTML, bodyHTML) {
+  lastFocus = document.activeElement;
+  $("#d-title").textContent = title;
+  $("#d-meta").innerHTML = metaHTML;
+  $("#d-body").innerHTML = bodyHTML;
+  $("#drawer").classList.add("open"); $("#scrim").classList.add("open");
+  $("#drawer").setAttribute("aria-hidden", "false");
+  $("#d-body").scrollTop = 0;
+  $("#d-close").focus();
+}
+function closeDrawer() {
+  $("#drawer").classList.remove("open"); $("#scrim").classList.remove("open");
+  $("#drawer").setAttribute("aria-hidden", "true");
+  lastFocus?.focus?.();
 }
 
 async function openPatient(id) {
-  const p = patientsById[id] || await api(`/patients/${encodeURIComponent(id)}`);
-  const [calls, appts] = await Promise.all([
-    api(`/patients/${encodeURIComponent(id)}/calls`), api(`/patients/${encodeURIComponent(id)}/appointments`),
+  const [p, calls, appts] = await Promise.all([
+    state.byId[id] || api(`/patients/${encodeURIComponent(id)}`),
+    api(`/patients/${encodeURIComponent(id)}/calls`),
+    api(`/patients/${encodeURIComponent(id)}/appointments`),
   ]);
-  const field = (k, v) => `<div class="f"><div class="k">${k}</div><div class="v">${esc(v) || "<span class='sub'>—</span>"}</div></div>`;
-  $("#d-title").textContent = `${p.first_name} ${p.last_name}`;
-  $("#d-body").innerHTML = `
-    <div class="grid">
-      ${field("Date of birth", p.date_of_birth)}${field("Sex", p.sex)}
-      ${field("Phone", fmtPhone(p.phone_number))}${field("Email", p.email)}
-      ${field("Address", [p.address_line_1, p.address_line_2].filter(Boolean).join(", "))}
-      ${field("City / State / ZIP", `${p.city}, ${p.state} ${p.zip_code}`)}
-      ${field("Insurance", [p.insurance_provider, p.insurance_member_id].filter(Boolean).join(" · "))}
-      ${field("Emergency contact", [p.emergency_contact_name, fmtPhone(p.emergency_contact_phone)].filter(Boolean).join(" · "))}
+  const meta = `<span class="mono">DOB ${esc(p.date_of_birth)}</span><span class="muted">·</span><span>Age ${age(p.date_of_birth)}</span>
+    <span class="muted">·</span><span>${esc(p.sex)}</span>
+    ${calls.length ? `<span class="chip saved">Registered by phone</span>` : `<span class="chip">Added through API</span>`}`;
+  const body = `
+    <section class="d-sec"><h3>Contact</h3><div class="fields">
+      ${field("Phone", phone(p.phone_number))}${field("Email", p.email)}
       ${field("Preferred language", p.preferred_language)}
-      ${field("Patient ID", p.patient_id)}
-      ${field("Created", fmtTime(p.created_at))}${field("Updated", fmtTime(p.updated_at))}
-    </div>
-    <h3>Appointments</h3>
-    ${appts.length ? appts.map((a) => `<div>${esc(fmtTime(a.starts_at))} with ${esc(a.provider_name)} <span class="pill">${esc(a.status)}</span></div>`).join("") : "<div class='sub'>None booked.</div>"}
-    <h3>Calls</h3>
-    ${calls.length ? calls.map((c) => `
-      <details>
-        <summary>${esc(fmtTime(c.started_at || c.created_at))} · ${esc(c.ended_reason || c.status)}</summary>
-        ${c.summary ? `<p>${esc(c.summary)}</p>` : ""}
-        <pre>${esc(c.transcript || "Transcript arrives when the call ends.")}</pre>
-      </details>`).join("") : "<div class='sub'>No linked calls (created via API or seed data).</div>"}
-  `;
-  $("#detail").showModal();
+    </div></section>
+    <section class="d-sec"><h3>Home address</h3><div class="fields">
+      ${field("Street", [p.address_line_1, p.address_line_2].filter(Boolean).join(", "))}
+      ${field("City, state, ZIP", `${p.city}, ${p.state} ${p.zip_code}`)}
+    </div></section>
+    <section class="d-sec"><h3>Insurance and emergency contact</h3><div class="fields">
+      ${field("Insurance provider", p.insurance_provider)}${field("Member ID", p.insurance_member_id)}
+      ${field("Emergency contact", p.emergency_contact_name)}${field("Emergency phone", phone(p.emergency_contact_phone))}
+    </div></section>
+    <section class="d-sec"><h3>Appointments</h3>
+      ${appts.length ? appts.map((a) => `<div class="appt"><span><b>${esc(new Date(a.starts_at).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }))}</b> with ${esc(a.provider_name)}</span><span class="chip saved">${esc(a.status)}</span></div>`).join("")
+        : `<p class="muted" style="margin:0">No appointment booked yet.</p>`}
+    </section>
+    <section class="d-sec"><h3>What was said on the phone</h3>
+      ${calls.length ? calls.map(callHTML).join("") : `<p class="muted" style="margin:0">This record was created through the API, so there is no call transcript.</p>`}
+    </section>
+    <section class="d-sec"><h3>System</h3><div class="fields">
+      ${field("Patient ID", p.patient_id)}${field("Created", new Date(p.created_at).toLocaleString())}
+      ${field("Last updated", new Date(p.updated_at).toLocaleString())}
+    </div></section>`;
+  openDrawer(`${p.first_name} ${p.last_name}`, meta, body);
 }
+
+function openCall(callId) {
+  const c = state.calls.find((x) => x.call_id === callId);
+  if (!c) return;
+  if (c.patient_id) return openPatient(c.patient_id);
+  const o = outcome(c);
+  openDrawer(`Call from ${callerPhone(c.caller_number)}`,
+    `<span class="chip ${o.cls}">${o.label}</span><span class="muted">No patient record was saved on this call.</span>`,
+    `<section class="d-sec"><h3>What was said on the phone</h3>${callHTML(c)}</section>`);
+}
+
+/* ------------------------------------------------------------ data loading */
+function searchParams() {
+  const params = new URLSearchParams();
+  for (const [k, v] of new FormData($("#search"))) if (String(v).trim()) params.set(k, String(v).trim());
+  return params;
+}
+function showNotice(msg) { const n = $("#notice"); n.textContent = msg || ""; n.hidden = !msg; }
 
 async function refresh() {
-  await loadPatients();
-  try { await loadCalls(); } catch (e) { /* call log is secondary */ }
-  $("#updated").textContent = `Updated ${new Date().toLocaleTimeString()}`;
+  const params = searchParams();
+  try {
+    const [all, calls] = await Promise.all([api("/patients"), api("/calls?limit=200")]);
+    state.patients = all; state.calls = calls;
+    state.byId = Object.fromEntries(all.map((p) => [p.patient_id, p]));
+    const rows = params.toString() ? await api(`/patients?${params}`) : all;
+    renderThesis(); renderWave(); renderPatients(rows, !!params.toString()); renderCalls();
+    state.firstPaint = false;
+    showNotice("");
+    $("#live").classList.remove("down");
+    $("#updated").textContent = `Live · updated ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}`;
+  } catch (e) {
+    $("#live").classList.add("down");
+    $("#updated").textContent = "Can't reach the API";
+    showNotice(params.toString()
+      ? `Search failed: ${e.message}`
+      : `Couldn't load records: ${e.message}. The page retries every 15 seconds.`);
+  }
 }
 
-$("#filters").addEventListener("submit", (e) => { e.preventDefault(); loadPatients(); });
-$("#filters").addEventListener("reset", () => setTimeout(loadPatients));
-document.addEventListener("click", (e) => {
-  const row = e.target.closest("tbody tr[data-id]");
-  if (row && row.dataset.id) openPatient(row.dataset.id).catch((err) => alert(err.message));
-});
-$("#d-close").addEventListener("click", () => $("#detail").close());
-document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => {
-  document.querySelectorAll(".tab").forEach((x) => x.setAttribute("aria-selected", String(x === t)));
-  $("#tab-patients").hidden = t.dataset.tab !== "patients";
-  $("#tab-calls").hidden = t.dataset.tab !== "calls";
-}));
+/* ------------------------------------------------------------ events */
+$("#search").addEventListener("submit", (e) => { e.preventDefault(); selectTab("p"); refresh(); });
+$("#search").addEventListener("reset", () => setTimeout(refresh));
 
+function selectTab(t) {
+  $("#tab-p").setAttribute("aria-selected", String(t === "p"));
+  $("#tab-c").setAttribute("aria-selected", String(t === "c"));
+  $("#panel-p").hidden = t !== "p"; $("#panel-c").hidden = t !== "c";
+}
+$("#tab-p").addEventListener("click", () => selectTab("p"));
+$("#tab-c").addEventListener("click", () => selectTab("c"));
+
+function activate(el) {
+  if (!el) return;
+  const run = el.dataset.patient ? openPatient(el.dataset.patient) : el.dataset.call ? openCall(el.dataset.call) : null;
+  Promise.resolve(run).catch((err) => showNotice(`Couldn't open the record: ${err.message}`));
+}
+document.addEventListener("click", (e) => activate(e.target.closest("[data-patient], [data-call]")));
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && $("#drawer").classList.contains("open")) return closeDrawer();
+  if (e.key === "Enter" && e.target.matches("tr[data-patient], tr[data-call]")) activate(e.target);
+});
+$("#d-close").addEventListener("click", closeDrawer);
+$("#scrim").addEventListener("click", closeDrawer);
+
+const wave = $("#wave"), readout = $("#readout"), idle = readout.textContent;
+const showBar = (e) => { const b = e.target.closest(".bar[data-label]"); readout.textContent = b ? b.dataset.label : idle; };
+wave.addEventListener("mouseover", showBar); wave.addEventListener("focusin", showBar);
+wave.addEventListener("mouseleave", () => (readout.textContent = idle));
+
+api("/health").then((h) => {
+  if (h.clinic_name) { $("#clinic").textContent = `${h.clinic_name} · Intake line`; document.title = `${h.clinic_name} · Intake Line`; }
+}).catch(() => {});
 refresh();
-setInterval(refresh, 15000);
+setInterval(() => { if (!$("#drawer").classList.contains("open")) refresh(); }, 15000);
 </script>
 </body>
 </html>
