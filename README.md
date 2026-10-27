@@ -6,11 +6,11 @@ Call a U.S. phone number and talk to **Ava**, an AI intake coordinator who regis
 
 | | |
 |---|---|
-| **Phone number** | `+1 (XXX) XXX-XXXX` <!-- fill in after provisioning --> |
-| **API base URL** | `https://<your-app>.vercel.app` |
-| **Dashboard** | `https://<your-app>.vercel.app/dashboard` |
-| **API docs (OpenAPI)** | `https://<your-app>.vercel.app/docs` |
-| **Credentials** | None for reads. Write endpoints are open unless `API_KEY` is set (then send `X-API-Key`). |
+| **Phone number** | **+1 (213) 727-7174** |
+| **API base URL** | https://ai-voice-agent-taupe.vercel.app |
+| **Dashboard** | https://ai-voice-agent-taupe.vercel.app/dashboard |
+| **API docs (OpenAPI)** | https://ai-voice-agent-taupe.vercel.app/docs |
+| **Credentials** | None needed. All `/patients` endpoints are open for testing. `/vapi/webhook` only accepts requests carrying the shared secret Vapi sends. |
 
 Seed data: two fictional patients, Jane Doe `(212) 555-0101` and Carlos Rivera `(305) 555-0123`. Call and give Jane's number to try the returning-patient flow (her DOB is 03/14/1985).
 
@@ -111,7 +111,7 @@ All responses use the envelope `{"data": ..., "error": null}`. Errors look like 
 Status codes: 200, 201, 400 (malformed JSON or ID), 401, 404, 409 (slot taken), 422 (validation), 500 (same envelope, no stack traces).
 
 ```bash
-BASE=https://<your-app>.vercel.app
+BASE=https://ai-voice-agent-taupe.vercel.app
 curl -s "$BASE/patients?last_name=doe"
 curl -s -X POST "$BASE/patients" -H 'content-type: application/json' -d '{
   "first_name":"Ana","last_name":"Lopez","date_of_birth":"07/04/1990","sex":"Female",
