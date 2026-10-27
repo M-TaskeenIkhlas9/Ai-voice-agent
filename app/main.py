@@ -19,6 +19,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import db as database
+from app.api import appointments as appointments_api
 from app.api import calls as calls_api
 from app.api import patients as patients_api
 from app.api.envelope import BadRequestError, fail, ok
@@ -27,6 +28,7 @@ from app.errors import ConflictError, DomainValidationError, NotFoundError, Unau
 from app.logging_setup import configure_logging
 from app.schemas import error_details
 from app.seed import seed_if_empty
+from app.services import appointments as appointment_service
 from app.voice import webhook as vapi_webhook
 
 log = logging.getLogger("app")
@@ -90,6 +92,7 @@ async def _ensure_bootstrapped(request: Request, call_next):
 
 app.include_router(patients_api.router)
 app.include_router(calls_api.router)
+app.include_router(appointments_api.router)
 app.include_router(vapi_webhook.router)
 
 
@@ -158,6 +161,21 @@ def health():
     with database.SessionLocal() as session:
         session.execute(text("SELECT 1"))
     return ok({"status": "ok", "clinic_name": get_settings().clinic_name})
+
+
+@app.get("/config", tags=["meta"])
+def public_config():
+    """Browser-safe settings for the dashboard. Never includes secrets."""
+    s = get_settings()
+    return ok({
+        "clinic_name": s.clinic_name,
+        "clinic_timezone": s.clinic_timezone,
+        "phone_number": s.intake_phone_number or None,
+        "web_call": {"public_key": s.vapi_public_key, "assistant_id": s.vapi_assistant_id}
+        if s.vapi_public_key and s.vapi_assistant_id else None,
+        "providers": list(appointment_service.PROVIDERS),
+        "clinic_hours": list(appointment_service.CLINIC_HOURS),
+    })
 
 
 @app.get("/", include_in_schema=False)

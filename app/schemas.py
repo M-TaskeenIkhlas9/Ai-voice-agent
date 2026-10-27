@@ -191,7 +191,19 @@ class AppointmentOut(BaseModel):
     starts_at: datetime
     reason: str | None
     status: str
+    created_at: datetime
 
-    @field_serializer("starts_at")
+    @field_serializer("starts_at", "created_at")
     def _ser_ts(self, value: datetime) -> str | None:
         return iso_utc(value)
+
+
+class AppointmentCreate(BaseModel):
+    """Booking from the dashboard or API: one of the generated clinic slots."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    patient_id: uuid.UUID
+    slot_start: str
+    provider_name: str
+    reason: str | None = None

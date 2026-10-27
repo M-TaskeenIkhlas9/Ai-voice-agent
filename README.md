@@ -105,6 +105,9 @@ All responses use the envelope `{"data": ..., "error": null}`. Errors look like 
 | GET | `/patients/{id}/calls` | Call transcripts linked to the patient (bonus) |
 | GET | `/patients/{id}/appointments` | Booked appointments (bonus) |
 | GET | `/calls` | Recent calls, including ones that dropped before saving |
+| GET | `/appointments` | Clinic schedule: `?start=YYYY-MM-DD` (clinic-local, default today) and `?days=` (1–31, default 7); each item includes `patient_name` |
+| POST | `/appointments` | Book a slot: `patient_id`, `slot_start` (ISO; naive times are read in clinic time), `provider_name`. 409 if taken, 422 outside weekday 9 AM–4 PM hourly slots |
+| GET | `/config` | Browser-safe settings for the dashboard (clinic name and time zone, providers, phone number, web-call public key). Never returns secrets |
 | GET | `/health` | Liveness and DB check |
 | POST | `/vapi/webhook` | Vapi only; requires the `x-webhook-secret` header |
 
@@ -147,6 +150,16 @@ The full system prompt is in [`app/voice/prompt.py`](app/voice/prompt.py), with 
 | Returning caller | Detected by phone; update flow after DOB check; family members on a shared phone can still register |
 | Caller speaks Spanish | The agent switches to Spanish and sets `preferred_language=Spanish` |
 
+## Dashboard
+
+`/dashboard` is a front-desk app with four views (Overview, Patients, Calls, Schedule). It is plain HTML and JavaScript served by the same FastAPI app, with no build step.
+
+- **Call Ava from the browser.** The Overview's call panel starts a real Vapi web call (`@vapi-ai/web` 2.7.1, loaded on first use). It shows a call timer, a waveform driven by the actual voice levels (Ava in mulberry, the caller in navy), a live transcript with partial words, and Mute and End call buttons. When Ava saves the caller, the panel fills in their contact card and any booked visit by polling `/calls` for that call ID. This needs `VAPI_PUBLIC_KEY` and `VAPI_ASSISTANT_ID`; without them the button explains that browser calling is off and points to the phone number.
+- **Schedule.** A week strip with booking counts, per-provider hourly slots in clinic time (so every viewer sees 9 AM–4 PM), "Just booked" highlights for bookings from the last 15 minutes, and click-to-book on any open slot (`POST /appointments`). The Schedule view shows both providers side by side and a list of the week's visits.
+- **The line, patients and call log.** Every call drawn as a bar sized by length and coloured by outcome, plus searchable patient and call tables. Each record opens next to its call transcript.
+
+The public key is meant for browsers. In the Vapi dashboard, restrict it to this site's domain and to the intake assistant so it can't be reused elsewhere.
+
 ## Observability
 
 JSON-lines logs on stdout, each tagged with the Vapi `call_id`: every tool call with its arguments, every tool result, the final `save_patient` payload, and the end-of-call summary and reason. The submitted payload is also stored in `call_logs.collected_payload`. To follow one call, `grep <call_id>` in the Vercel project's **Logs** tab.
@@ -185,6 +198,9 @@ To talk to the agent locally, expose the server with `ngrok http 8000`, set `PUB
 | `DATABASE_URL` (or `POSTGRES_URL`) | app | prod | Postgres URL (`postgres://` accepted). Defaults to SQLite `./data/patients.db` locally; required on Vercel |
 | `VAPI_WEBHOOK_SECRET` | app + setup | prod | Shared secret Vapi sends in `x-webhook-secret`; empty disables the check (local only) |
 | `API_KEY` | app | no | If set, POST/PUT/DELETE need `X-API-Key` |
+| `VAPI_PUBLIC_KEY` | app | no | Vapi **public** key; turns on the dashboard's "Start call" button |
+| `VAPI_ASSISTANT_ID` | app + setup | no | Assistant the dashboard calls (and the setup script updates) |
+| `INTAKE_PHONE_NUMBER` | app | no | E.164 number shown on the dashboard, e.g. `+12137277174` |
 | `SEED_DATA` | app | no | Insert two demo patients into an empty DB (default `true`) |
 | `CLINIC_NAME`, `CLINIC_TIMEZONE` | app + setup | no | Spoken clinic name; timezone for "today" and appointment slots |
 | `LOG_LEVEL` | app | no | Default `INFO` |

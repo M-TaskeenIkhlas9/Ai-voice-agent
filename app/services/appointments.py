@@ -16,12 +16,16 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.errors import ConflictError, DomainValidationError
-from app.models import Appointment
+from app.models import Appointment, Patient
 from app.services.patients import get_patient
 
 PROVIDERS = ("Dr. Sarah Chen", "Dr. Michael Okafor")
 CLINIC_HOURS = range(9, 17)  # slot start hours, local time
 DAYS_AHEAD = 10
+
+
+def clinic_today(tz_name: str) -> date:
+    return datetime.now(ZoneInfo(tz_name)).date()
 
 
 def _as_utc(value: datetime) -> datetime:
@@ -84,6 +88,11 @@ def book_appointment(
         raise DomainValidationError("Invalid slot", {"slot_start": "must be an ISO-8601 datetime"}) from exc
     if start.tzinfo is None:
         start = start.replace(tzinfo=ZoneInfo(tz_name))
+    local = start.astimezone(ZoneInfo(tz_name))
+    if local.weekday() >= 5 or local.hour not in CLINIC_HOURS or local.minute or local.second:
+        raise DomainValidationError(
+            "Not a clinic slot", {"slot_start": "must be on the hour, 9 AM to 4 PM, Monday to Friday"}
+        )
     start_utc = start.astimezone(timezone.utc)
     if start_utc <= datetime.now(timezone.utc):
         raise DomainValidationError("Slot is in the past", {"slot_start": "must be in the future"})
@@ -99,6 +108,21 @@ def book_appointment(
         raise ConflictError("That time was just booked by someone else") from exc
     db.refresh(appt)
     return appt
+
+
+def list_range(db: Session, start: date, days: int, tz_name: str) -> list[tuple[Appointment, Patient]]:
+    """Scheduled appointments from `start` (clinic-local date) for `days` days, with patients."""
+    tz = ZoneInfo(tz_name)
+    lo = datetime.combine(start, time(0), tzinfo=tz).astimezone(timezone.utc)
+    hi = datetime.combine(start + timedelta(days=days), time(0), tzinfo=tz).astimezone(timezone.utc)
+    stmt = (
+        select(Appointment, Patient)
+        .join(Patient, Patient.patient_id == Appointment.patient_id)
+        .where(Appointment.status == "scheduled")
+        .order_by(Appointment.starts_at)
+    )
+    # Filtered in Python: SQLite drops tzinfo, and the mock schedule is small.
+    return [(a, p) for a, p in db.execute(stmt).all() if lo <= _as_utc(a.starts_at) < hi]
 
 
 def list_for_patient(db: Session, patient_id: uuid.UUID) -> list[Appointment]:

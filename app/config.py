@@ -28,6 +28,11 @@ class Settings:
     clinic_name: str
     clinic_timezone: str
     log_level: str
+    # Public, browser-safe values for the dashboard's "call Ava" panel.
+    # VAPI_PUBLIC_KEY is Vapi's *public* key (never the private one).
+    vapi_public_key: str
+    vapi_assistant_id: str
+    intake_phone_number: str
 
 
 def _prefixed_database_url() -> str | None:
@@ -61,4 +66,7 @@ def get_settings() -> Settings:
         clinic_name=os.getenv("CLINIC_NAME", "Riverside Family Health"),
         clinic_timezone=os.getenv("CLINIC_TIMEZONE", "America/New_York"),
         log_level=os.getenv("LOG_LEVEL", "INFO"),
+        vapi_public_key=os.getenv("VAPI_PUBLIC_KEY", ""),
+        vapi_assistant_id=os.getenv("VAPI_ASSISTANT_ID", ""),
+        intake_phone_number=os.getenv("INTAKE_PHONE_NUMBER", ""),
     )
