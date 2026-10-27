@@ -30,9 +30,18 @@ class Settings:
     log_level: str
 
 
+def _prefixed_database_url() -> str | None:
+    # Vercel's Storage integration prepends a user-chosen prefix to every
+    # variable it creates, e.g. "database_DATABASE_URL" or "STORAGE_DATABASE_URL".
+    for key in sorted(os.environ):
+        if key.upper().endswith("_DATABASE_URL"):
+            return os.environ[key]
+    return None
+
+
 def _database_url() -> str:
     # Vercel's Neon integration may expose POSTGRES_URL instead of DATABASE_URL.
-    url = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")
+    url = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL") or _prefixed_database_url()
     if url:
         return url
     if os.getenv("VERCEL"):

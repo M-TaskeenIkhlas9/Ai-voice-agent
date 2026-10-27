@@ -62,7 +62,12 @@ def bootstrap() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    bootstrap()
+    try:
+        bootstrap()
+    except Exception:
+        # Don't take the whole app down: the middleware retries on each
+        # request and answers 503 until the database is reachable.
+        log.exception("bootstrap failed at startup")
     yield
 
 

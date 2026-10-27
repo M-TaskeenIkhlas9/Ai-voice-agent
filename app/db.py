@@ -40,7 +40,9 @@ def _make_engine(url: str) -> Engine:
     if os.getenv("VERCEL"):
         # Serverless instances freeze between requests, so pooled connections
         # go stale; open one per request (Neon's pooler absorbs the cost).
-        return create_engine(url, poolclass=NullPool)
+        # prepare_threshold=None: Neon's pgbouncer pooler (transaction mode)
+        # can't track server-side prepared statements across connections.
+        return create_engine(url, poolclass=NullPool, connect_args={"prepare_threshold": None})
     return create_engine(url, pool_pre_ping=True, pool_size=5, max_overflow=5)
 
 
