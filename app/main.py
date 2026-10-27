@@ -6,6 +6,7 @@ Run locally:  uvicorn app.main:app --reload
 from __future__ import annotations
 
 import logging
+import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse
 from sqlalchemy import text
+from starlette.concurrency import run_in_threadpool
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -31,16 +33,36 @@ log = logging.getLogger("app")
 STATIC_DIR = Path(__file__).parent / "static"
 
 
+_ready = False
+_ready_lock = threading.Lock()
+
+
+def bootstrap() -> None:
+    """Connect, create tables, seed. Idempotent and thread-safe.
+
+    Runs from the lifespan hook on normal servers, and lazily on the first
+    request on serverless hosts (Vercel) where lifespan is not guaranteed.
+    """
+    global _ready
+    if _ready:
+        return
+    with _ready_lock:
+        if _ready:
+            return
+        settings = get_settings()
+        configure_logging(settings.log_level)
+        database.init_engine(settings.database_url)
+        database.create_tables()
+        if settings.seed_data:
+            with database.SessionLocal() as session:
+                seed_if_empty(session)
+        _ready = True
+        log.info("startup complete", extra={"db": settings.database_url.split("://", 1)[0]})
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    settings = get_settings()
-    configure_logging(settings.log_level)
-    database.init_engine(settings.database_url)
-    database.create_tables()
-    if settings.seed_data:
-        with database.SessionLocal() as session:
-            seed_if_empty(session)
-    log.info("startup complete", extra={"db": settings.database_url.split("://", 1)[0]})
+    bootstrap()
     yield
 
 
@@ -50,6 +72,17 @@ app = FastAPI(
     description="REST API backing a Vapi voice agent that registers new patients by phone.",
     lifespan=lifespan,
 )
+@app.middleware("http")
+async def _ensure_bootstrapped(request: Request, call_next):
+    if not _ready:
+        try:
+            await run_in_threadpool(bootstrap)
+        except Exception:
+            log.exception("bootstrap failed")
+            return fail(503, "service_unavailable", "The service is starting up or cannot reach its database.")
+    return await call_next(request)
+
+
 app.include_router(patients_api.router)
 app.include_router(calls_api.router)
 app.include_router(vapi_webhook.router)

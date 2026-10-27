@@ -12,6 +12,8 @@ from collections.abc import Iterator
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import IntegrityError, ProgrammingError
+from sqlalchemy.pool import NullPool
 from sqlalchemy.orm import DeclarativeBase, sessionmaker, Session
 
 
@@ -35,6 +37,10 @@ def _make_engine(url: str) -> Engine:
         if path and path != ":memory:":
             os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         return create_engine(url, connect_args={"check_same_thread": False})
+    if os.getenv("VERCEL"):
+        # Serverless instances freeze between requests, so pooled connections
+        # go stale; open one per request (Neon's pooler absorbs the cost).
+        return create_engine(url, poolclass=NullPool)
     return create_engine(url, pool_pre_ping=True, pool_size=5, max_overflow=5)
 
 
@@ -53,7 +59,12 @@ def create_tables() -> None:
     from app import models  # noqa: F401  (registers models on Base.metadata)
 
     assert engine is not None, "init_engine() must be called first"
-    Base.metadata.create_all(engine)
+    try:
+        Base.metadata.create_all(engine)
+    except (IntegrityError, ProgrammingError):
+        # Two cold serverless instances raced to create the same tables;
+        # the other one won, so the schema now exists. Re-check once.
+        Base.metadata.create_all(engine)
 
 
 def get_db() -> Iterator[Session]:

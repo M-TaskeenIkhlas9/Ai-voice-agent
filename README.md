@@ -7,9 +7,9 @@ Call a U.S. phone number and talk to **Ava**, an AI intake coordinator who regis
 | | |
 |---|---|
 | **Phone number** | `+1 (XXX) XXX-XXXX` <!-- fill in after provisioning --> |
-| **API base URL** | `https://<your-app>.up.railway.app` |
-| **Dashboard** | `https://<your-app>.up.railway.app/dashboard` |
-| **API docs (OpenAPI)** | `https://<your-app>.up.railway.app/docs` |
+| **API base URL** | `https://<your-app>.vercel.app` |
+| **Dashboard** | `https://<your-app>.vercel.app/dashboard` |
+| **API docs (OpenAPI)** | `https://<your-app>.vercel.app/docs` |
 | **Credentials** | None for reads. Write endpoints are open unless `API_KEY` is set (then send `X-API-Key`). |
 
 Seed data: two fictional patients, Jane Doe `(212) 555-0101` and Carlos Rivera `(305) 555-0123`. Call and give Jane's number to try the returning-patient flow (her DOB is 03/14/1985).
@@ -74,7 +74,7 @@ The voice agent does **not** write to the DB itself. It calls the same service f
 | **Deepgram nova-3 `multi` + ElevenLabs turbo v2.5** | Both handle English and Spanish, so the "Hablo español" bonus works without a second assistant. |
 | **FastAPI + Pydantic v2** | Typed request validation, automatic OpenAPI docs at `/docs`, and a small amount of code. |
 | **SQLAlchemy 2 + PostgreSQL** | Real constraints and types in production. The same models run on SQLite for zero-setup local development and tests, and the test suite passes on both. |
-| **Railway** | Always-on (no cold starts that would leave a caller in silence), managed Postgres, and deploys from the Dockerfile. |
+| **Vercel + Neon Postgres** | Free, no card. The app runs as one serverless function; cold starts are about 1–2 s, well under Vapi's 20 s tool timeout, and the instance never sleeps for minutes the way free container hosts do. Neon is attached through Vercel's Storage tab. A Dockerfile is also included for any container host (Railway, Render, Fly). |
 
 ## Data model
 
@@ -111,7 +111,7 @@ All responses use the envelope `{"data": ..., "error": null}`. Errors look like 
 Status codes: 200, 201, 400 (malformed JSON or ID), 401, 404, 409 (slot taken), 422 (validation), 500 (same envelope, no stack traces).
 
 ```bash
-BASE=https://<your-app>.up.railway.app
+BASE=https://<your-app>.vercel.app
 curl -s "$BASE/patients?last_name=doe"
 curl -s -X POST "$BASE/patients" -H 'content-type: application/json' -d '{
   "first_name":"Ana","last_name":"Lopez","date_of_birth":"07/04/1990","sex":"Female",
@@ -149,7 +149,7 @@ The full system prompt is in [`app/voice/prompt.py`](app/voice/prompt.py), with 
 
 ## Observability
 
-JSON-lines logs on stdout, each tagged with the Vapi `call_id`: every tool call with its arguments, every tool result, the final `save_patient` payload, and the end-of-call summary and reason. The submitted payload is also stored in `call_logs.collected_payload`. To follow one call, `grep <call_id>` in Railway's log view.
+JSON-lines logs on stdout, each tagged with the Vapi `call_id`: every tool call with its arguments, every tool result, the final `save_patient` payload, and the end-of-call summary and reason. The submitted payload is also stored in `call_logs.collected_payload`. To follow one call, `grep <call_id>` in the Vercel project's **Logs** tab.
 
 ## Running locally
 
@@ -163,22 +163,26 @@ TEST_DATABASE_URL=postgresql://... .venv/bin/pytest -q # same suite against Post
 
 To talk to the agent locally, expose the server with `ngrok http 8000`, set `PUBLIC_BASE_URL` to the ngrok URL, and run `python scripts/setup_vapi.py`.
 
-## Deployment (Railway + Vapi)
+## Deployment (Vercel + Neon + Vapi)
 
-1. Push this repo to GitHub. In Railway: **New Project → Deploy from GitHub repo**, then **+ New → Database → PostgreSQL**.
-2. In the web service's variables, set `DATABASE_URL=${{Postgres.DATABASE_URL}}` and `VAPI_WEBHOOK_SECRET=<openssl rand -hex 24>`, then generate a public domain.
-3. Locally, set `VAPI_API_KEY` (Vapi dashboard → API Keys → private key), `PUBLIC_BASE_URL` (the Railway URL) and the same `VAPI_WEBHOOK_SECRET` in `.env`, then run:
+1. In Vercel: **Add New → Project → Import** this GitHub repo (no build settings needed; `vercel.json` routes every path to `api/index.py`).
+2. In the project: **Storage → Create Database → Neon (Postgres)** and connect it. This sets `DATABASE_URL`/`POSTGRES_URL` automatically. Add `VAPI_WEBHOOK_SECRET=<openssl rand -hex 24>` under **Settings → Environment Variables**, then redeploy.
+3. Locally, set `VAPI_API_KEY` (Vapi dashboard → API Keys → private key), `PUBLIC_BASE_URL` (the Vercel URL) and the same `VAPI_WEBHOOK_SECRET` in `.env`, then run:
    ```bash
    python scripts/setup_vapi.py --buy-number 512   # creates the assistant and a free Vapi US number
    ```
    You can also create a free number in the Vapi dashboard (Phone Numbers → Create) and run `python scripts/setup_vapi.py --phone-number-id <id>`.
 4. Call the number. Re-run the script after any prompt or tool change; it updates the assistant in place.
 
+**Serverless notes.** On Vercel the app creates tables and seed data on the first request (startup hooks aren't guaranteed there), opens one DB connection per request instead of keeping a pool, and refuses to start without a database rather than falling back to a SQLite file that the platform would wipe.
+
+**Container hosts instead.** `docker build .` produces a self-contained image (`$PORT` respected); `railway.json` is included for Railway. Point `DATABASE_URL` at any Postgres.
+
 ## Environment variables
 
 | Variable | Used by | Required | Description |
 |---|---|---|---|
-| `DATABASE_URL` | app | prod | Postgres URL (`postgres://` accepted). Defaults to SQLite `./data/patients.db` |
+| `DATABASE_URL` (or `POSTGRES_URL`) | app | prod | Postgres URL (`postgres://` accepted). Defaults to SQLite `./data/patients.db` locally; required on Vercel |
 | `VAPI_WEBHOOK_SECRET` | app + setup | prod | Shared secret Vapi sends in `x-webhook-secret`; empty disables the check (local only) |
 | `API_KEY` | app | no | If set, POST/PUT/DELETE need `X-API-Key` |
 | `SEED_DATA` | app | no | Insert two demo patients into an empty DB (default `true`) |

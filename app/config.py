@@ -30,10 +30,22 @@ class Settings:
     log_level: str
 
 
+def _database_url() -> str:
+    # Vercel's Neon integration may expose POSTGRES_URL instead of DATABASE_URL.
+    url = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")
+    if url:
+        return url
+    if os.getenv("VERCEL"):
+        # A SQLite file on a serverless disk is wiped between instances, which
+        # would silently lose patients. Refuse to start instead.
+        raise RuntimeError("DATABASE_URL is not set; connect a Postgres database to this Vercel project")
+    return "sqlite:///./data/patients.db"
+
+
 @lru_cache
 def get_settings() -> Settings:
     return Settings(
-        database_url=os.getenv("DATABASE_URL", "sqlite:///./data/patients.db"),
+        database_url=_database_url(),
         webhook_secret=os.getenv("VAPI_WEBHOOK_SECRET", ""),
         api_key=os.getenv("API_KEY", ""),
         seed_data=_bool(os.getenv("SEED_DATA"), True),
